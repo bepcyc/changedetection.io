@@ -15,9 +15,9 @@ from wtforms import (
     validators,
     widgets
 )
-
-from wtforms.fields import html5, FieldList, FormField
+from wtforms.fields import FieldList, FormField
 from wtforms.validators import ValidationError
+import json
 
 from changedetectionio import content_fetcher
 from changedetectionio.notification import (
@@ -26,6 +26,8 @@ from changedetectionio.notification import (
     default_notification_title,
     valid_notification_formats,
 )
+
+from wtforms.fields import FormField
 
 valid_method = {
     'GET',
@@ -37,25 +39,47 @@ valid_method = {
 
 default_method = 'GET'
 
+# Two flags, tell the JS which of the "Selector" or "Value" field should be enabled
+# 0- off, 1- on
+
+browser_steps = {'Choose one': '0 0',
+                 'Enter text in field': '1 1',
+                 'Select by label': '1 1',
+                 'Wait for text': '0 1',
+                 'Wait for seconds': '0 1',
+                 'Check checkbox': '1 0',
+                 'Uncheck checkbox': '1 0',
+                 'Click button': '1 0',
+                 'Click button containing text': '0 1',
+                 'Scroll to top': '0 0',
+                 'Scroll to bottom': '0 0',
+                 'Scroll to element': '1 0',
+# @todo
+#                 'Switch to iFrame by index number': '0 1'
+                 }
+
 class StringListField(StringField):
     widget = widgets.TextArea()
 
     def _value(self):
         if self.data:
-            return "\r\n".join(self.data)
+            # ignore empty lines in the storage
+            data = list(filter(lambda x: len(x.strip()), self.data))
+            # Apply strip to each line
+            data = list(map(lambda x: x.strip(), data))
+            return "\r\n".join(data)
         else:
             return u''
 
     # incoming
     def process_formdata(self, valuelist):
-        if valuelist:
-            # Remove empty strings
-            cleaned = list(filter(None, valuelist[0].split("\n")))
-            self.data = [x.strip() for x in cleaned]
-            p = 1
+        if valuelist and len(valuelist[0].strip()):
+            # Remove empty strings, stripping and splitting \r\n, only \n etc.
+            self.data = valuelist[0].splitlines()
+            # Remove empty lines from the final data
+            self.data = list(filter(lambda x: len(x.strip()), self.data))
         else:
             self.data = []
-
 
 
 class SaltyPasswordField(StringField):
@@ -85,6 +109,13 @@ class SaltyPasswordField(StringField):
         else:
             self.data = False
 
+class TimeBetweenCheckForm(Form):
+    weeks = IntegerField('Weeks', validators=[validators.Optional(), validators.NumberRange(min=0, message="Should contain zero or more seconds")])
+    days = IntegerField('Days', validators=[validators.Optional(), validators.NumberRange(min=0, message="Should contain zero or more seconds")])
+    hours = IntegerField('Hours', validators=[validators.Optional(), validators.NumberRange(min=0, message="Should contain zero or more seconds")])
+    minutes = IntegerField('Minutes', validators=[validators.Optional(), validators.NumberRange(min=0, message="Should contain zero or more seconds")])
+    seconds = IntegerField('Seconds', validators=[validators.Optional(), validators.NumberRange(min=0, message="Should contain zero or more seconds")])
+    # @todo add total seconds minimum validatior = minimum_seconds_recheck_time
 
 # Separated by  key:value
 class StringDictKeyValue(StringField):
@@ -123,7 +154,6 @@ class ValidateContentFetcherIsReady(object):
 
     def __call__(self, form, field):
         import urllib3.exceptions
-
         from changedetectionio import content_fetcher
 
         # Better would be a radiohandler that keeps a reference to each class
@@ -213,7 +243,7 @@ class validateURL(object):
         except validators.ValidationFailure:
             message = field.gettext('\'%s\' is not a valid URL.' % (field.data.strip()))
             raise ValidationError(message)
-        
+
 class ValidateListRegex(object):
     """
     Validates that anything that looks like a regex passes as a regex
@@ -232,7 +262,7 @@ class ValidateListRegex(object):
                 except re.error:
                     message = field.gettext('RegEx \'%s\' is not a valid regular expression.')
                     raise ValidationError(message % (line))
-              
+
 class ValidateCSSJSONXPATHInput(object):
     """
     Filter validation
@@ -295,59 +325,63 @@ class ValidateCSSJSONXPATHInput(object):
                 # warning/notice that its possible the rule doesnt yet match anything?
 
 class quickWatchForm(Form):
-    # https://wtforms.readthedocs.io/en/2.3.x/fields/#module-wtforms.fields.html5
-    # `require_tld` = False is needed even for the test harness "http://localhost:5005.." to run
-    url = html5.URLField('URL', validators=[validateURL()])
-    tag = StringField('Group tag', [validators.Optional(), validators.Length(max=35)])
+    url = fields.URLField('URL', validators=[validateURL()])
+    tag = StringField('Group tag', [validators.Optional()])
 
+# Common to a single watch and the global settings
 class commonSettingsForm(Form):
 
-    notification_urls = StringListField('Notification URL List', validators=[validators.Optional(), ValidateNotificationBodyAndTitleWhenURLisSet(), ValidateAppRiseServers()])
-    notification_title = StringField('Notification Title', default=default_notification_title, validators=[validators.Optional(), ValidateTokensList()])
-    notification_body = TextAreaField('Notification Body', default=default_notification_body, validators=[validators.Optional(), ValidateTokensList()])
-    notification_format = SelectField('Notification Format', choices=valid_notification_formats.keys(), default=default_notification_format)
-    trigger_check = BooleanField('Send test notification on save')
-    fetch_backend = RadioField(u'Fetch Method', choices=content_fetcher.available_fetchers(), validators=[ValidateContentFetcherIsReady()])
+    notification_urls = StringListField('Notification URL list', validators=[validators.Optional(), ValidateNotificationBodyAndTitleWhenURLisSet(), ValidateAppRiseServers()])
+    notification_title = StringField('Notification title', default=default_notification_title, validators=[validators.Optional(), ValidateTokensList()])
+    notification_body = TextAreaField('Notification body', default=default_notification_body, validators=[validators.Optional(), ValidateTokensList()])
+    notification_format = SelectField('Notification format', choices=valid_notification_formats.keys(), default=default_notification_format)
+    fetch_backend = RadioField(u'Fetch method', choices=content_fetcher.available_fetchers(), validators=[ValidateContentFetcherIsReady()])
     extract_title_as_title = BooleanField('Extract <title> from document and use as watch title', default=False)
+    webdriver_delay = IntegerField('Wait seconds before extracting text', validators=[validators.Optional(), validators.NumberRange(min=1, message="Should contain one or more seconds")] )
 
 class SingleBrowserStep(Form):
-    # Thumbnail field, I guess each step is snapshotted as snapshot-stepNo, then we just keep reloading for new snapshots/thumbnails?
-    # On remove/add we should remove all snapshots/thumbnails
-
     # default
     # each select <option data-enabled="enabled-0-0"
-    operation = SelectField('Operation', [validators.Optional()], choices=['Goto URL', 'Enter text in field', 'Wait for text', 'Accept alert box', 'Click button'])
+    operation = SelectField('Operation', [validators.Optional()], choices=browser_steps.keys())
+
+    # maybe better to set some <script>var..
     selector = StringField('Selector', [validators.Optional()], render_kw={"placeholder": "CSS or xPath selector"})
-    optional_value = StringField('Optional value', [validators.Optional()], render_kw={"placeholder": "Optional value"})
-    remove_button = SubmitField('-', render_kw={"type": "button", "class": "pure-button pure-button-primary", 'title': 'Remove'})
-    add_button = SubmitField('+', render_kw={"type": "button", "class": "pure-button pure-button-primary", 'title': 'Add new step after'})
-    ignore_button = SubmitField('⊘', render_kw={"type": "button", "class": "pure-button pure-button-primary", 'title': 'Disable / Ignore'})
+    optional_value = StringField('value', [validators.Optional()], render_kw={"placeholder": "Value"})
+#   @todo move to JS? ajax fetch new field?
+#    remove_button = SubmitField('-', render_kw={"type": "button", "class": "pure-button pure-button-primary", 'title': 'Remove'})
+#    add_button = SubmitField('+', render_kw={"type": "button", "class": "pure-button pure-button-primary", 'title': 'Add new step after'})
 
 class watchForm(commonSettingsForm):
 
-    url = html5.URLField('URL', validators=[validateURL()])
-    tag = StringField('Group tag', [validators.Optional(), validators.Length(max=35)])
+    url = fields.URLField('URL', validators=[validateURL()])
+    tag = StringField('Group tag', [validators.Optional()], default='')
 
-    minutes_between_check = html5.IntegerField('Maximum time in minutes until recheck',
-                                               [validators.Optional(), validators.NumberRange(min=1)])
-    css_filter = StringField('CSS/JSON/XPATH Filter', [ValidateCSSJSONXPATHInput()])
+    time_between_check = FormField(TimeBetweenCheckForm)
+
+    css_filter = StringField('CSS/JSON/XPATH Filter', [ValidateCSSJSONXPATHInput()], default='')
+
     subtractive_selectors = StringListField('Remove elements', [ValidateCSSJSONXPATHInput(allow_xpath=False, allow_json=False)])
-    title = StringField('Title')
 
-    ignore_text = StringListField('Ignore Text', [ValidateListRegex()])
-    headers = StringDictKeyValue('Request Headers')
-    body = TextAreaField('Request Body', [validators.Optional()])
-    method = SelectField('Request Method', choices=valid_method, default=default_method)
-    ignore_status_codes = BooleanField('Ignore Status Codes (process non-2xx status codes as normal)', default=False)
+    extract_text = StringListField('Extract text', [ValidateListRegex()])
+
+    title = StringField('Title', default='')
+
+    ignore_text = StringListField('Ignore text', [ValidateListRegex()])
+    headers = StringDictKeyValue('Request headers')
+    body = TextAreaField('Request body', [validators.Optional()])
+    method = SelectField('Request method', choices=valid_method, default=default_method)
+    ignore_status_codes = BooleanField('Ignore status codes (process non-2xx status codes as normal)', default=False)
     trigger_text = StringListField('Trigger/wait for text', [validators.Optional(), ValidateListRegex()])
 
-    # First one should be Go-to URL |watch.url| and Disable
+    # @todo First one should be Go-to URL |watch.url| and Disable
     # Maybe via default=... ?
-    browser_steps = FieldList(FormField(SingleBrowserStep), min_entries=2)
+    browser_steps = FieldList(FormField(SingleBrowserStep), min_entries=10)
+    text_should_not_be_present = StringListField('Block change-detection if text matches', [validators.Optional(), ValidateListRegex()])
 
 
     save_button = SubmitField('Save', render_kw={"class": "pure-button pure-button-primary"})
     save_and_preview_button = SubmitField('Save & Preview', render_kw={"class": "pure-button pure-button-primary"})
+    proxy = RadioField('Proxy')
 
     def validate(self, **kwargs):
         if not super().validate():
@@ -362,15 +396,36 @@ class watchForm(commonSettingsForm):
 
         return result
 
-class globalSettingsForm(commonSettingsForm):
 
-    password = SaltyPasswordField()
-    minutes_between_check = html5.IntegerField('Maximum time in minutes until recheck',
-                                               [validators.NumberRange(min=1)])
-    extract_title_as_title = BooleanField('Extract <title> from document and use as watch title')
+# datastore.data['settings']['requests']..
+class globalSettingsRequestForm(Form):
+    time_between_check = FormField(TimeBetweenCheckForm)
+    proxy = RadioField('Proxy')
+    jitter_seconds = IntegerField('Random jitter seconds ± check',
+                                  render_kw={"style": "width: 5em;"},
+                                  validators=[validators.NumberRange(min=0, message="Should contain zero or more seconds")])
+
+# datastore.data['settings']['application']..
+class globalSettingsApplicationForm(commonSettingsForm):
+
     base_url = StringField('Base URL', validators=[validators.Optional()])
     global_subtractive_selectors = StringListField('Remove elements', [ValidateCSSJSONXPATHInput(allow_xpath=False, allow_json=False)])
     global_ignore_text = StringListField('Ignore Text', [ValidateListRegex()])
     ignore_whitespace = BooleanField('Ignore whitespace')
-    save_button = SubmitField('Save', render_kw={"class": "pure-button pure-button-primary"})
+    real_browser_save_screenshot = BooleanField('Save last screenshot when using Chrome?')
     removepassword_button = SubmitField('Remove password', render_kw={"class": "pure-button pure-button-primary"})
+    empty_pages_are_a_change =  BooleanField('Treat empty pages as a change?', default=False)
+    render_anchor_tag_content = BooleanField('Render anchor tag content', default=False)
+    fetch_backend = RadioField('Fetch Method', default="html_requests", choices=content_fetcher.available_fetchers(), validators=[ValidateContentFetcherIsReady()])
+    api_access_token_enabled = BooleanField('API access token security check enabled', default=True, validators=[validators.Optional()])
+    password = SaltyPasswordField()
+
+
+class globalSettingsForm(Form):
+    # Define these as FormFields/"sub forms", this way it matches the JSON storage
+    # datastore.data['settings']['application']..
+    # datastore.data['settings']['requests']..
+
+    requests = FormField(globalSettingsRequestForm)
+    application = FormField(globalSettingsApplicationForm)
+    save_button = SubmitField('Save', render_kw={"class": "pure-button pure-button-primary"})
