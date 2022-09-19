@@ -14,15 +14,18 @@ valid_tokens = {
     'current_snapshot': ''
 }
 
+default_notification_format_for_watch = 'System default'
+default_notification_format = 'Text'
+default_notification_body = '{watch_url} had a change.\n---\n{diff}\n---\n'
+default_notification_title = 'ChangeDetection.io Notification - {watch_url}'
+
 valid_notification_formats = {
     'Text': NotifyFormat.TEXT,
     'Markdown': NotifyFormat.MARKDOWN,
     'HTML': NotifyFormat.HTML,
+    # Used only for editing a watch (not for global)
+    default_notification_format_for_watch: default_notification_format_for_watch
 }
-
-default_notification_format = 'Text'
-default_notification_body = '{watch_url} had a change.\n---\n{diff}\n---\n'
-default_notification_title = 'ChangeDetection.io Notification - {watch_url}'
 
 def process_notification(n_object, datastore):
 
@@ -33,7 +36,6 @@ def process_notification(n_object, datastore):
         n_object['notification_format'],
         valid_notification_formats[default_notification_format],
     )
-
 
     # Insert variables into the notification content
     notification_parameters = create_notification_parameters(n_object, datastore)
@@ -48,9 +50,10 @@ def process_notification(n_object, datastore):
     # Anything higher than or equal to WARNING (which covers things like Connection errors)
     # raise it as an exception
     apobjs=[]
+    sent_objs=[]
+    from .apprise_asset import asset
     for url in n_object['notification_urls']:
-
-        apobj = apprise.Apprise(debug=True)
+        apobj = apprise.Apprise(debug=True, asset=asset)
         url = url.strip()
         if len(url):
             print(">> Process Notification: AppRise notifying {}".format(url))
@@ -63,22 +66,35 @@ def process_notification(n_object, datastore):
 
                 # So if no avatar_url is specified, add one so it can be correctly calculated into the total payload
                 k = '?' if not '?' in url else '&'
-                if not 'avatar_url' in url:
+                if not 'avatar_url' in url and not url.startswith('mail'):
                     url += k + 'avatar_url=https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/changedetectionio/static/images/avatar-256x256.png'
 
                 if url.startswith('tgram://'):
+                    # Telegram only supports a limit subset of HTML, remove the '<br/>' we place in.
+                    # re https://github.com/dgtlmoon/changedetection.io/issues/555
+                    # @todo re-use an existing library we have already imported to strip all non-allowed tags
+                    n_body = n_body.replace('<br/>', '\n')
+                    n_body = n_body.replace('</br>', '\n')
                     # real limit is 4096, but minus some for extra metadata
                     payload_max_size = 3600
                     body_limit = max(0, payload_max_size - len(n_title))
                     n_title = n_title[0:payload_max_size]
                     n_body = n_body[0:body_limit]
 
-                elif url.startswith('discord://'):
+                elif url.startswith('discord://') or url.startswith('https://discordapp.com/api/webhooks') or url.startswith('https://discord.com/api'):
                     # real limit is 2000, but minus some for extra metadata
                     payload_max_size = 1700
                     body_limit = max(0, payload_max_size - len(n_title))
                     n_title = n_title[0:payload_max_size]
                     n_body = n_body[0:body_limit]
+
+                elif url.startswith('mailto'):
+                    # Apprise will default to HTML, so we need to override it
+                    # So that whats' generated in n_body is in line with what is going to be sent.
+                    # https://github.com/caronc/apprise/issues/633#issuecomment-1191449321
+                    if not 'format=' in url and (n_format == 'text' or n_format == 'markdown'):
+                        prefix = '?' if not '?' in url else '&'
+                        url = "{}{}format={}".format(url, prefix, n_format)
 
                 apobj.add(url)
 
@@ -96,6 +112,15 @@ def process_notification(n_object, datastore):
                 log_value = logs.getvalue()
                 if log_value and 'WARNING' in log_value or 'ERROR' in log_value:
                     raise Exception(log_value)
+                
+                sent_objs.append({'title': n_title,
+                                  'body': n_body,
+                                  'url' : url,
+                                  'body_format': n_format})
+
+    # Return what was sent for better logging - after the for loop
+    return sent_objs
+
 
 # Notification title + body content parameters get created here.
 def create_notification_parameters(n_object, datastore):

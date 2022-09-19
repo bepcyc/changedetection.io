@@ -1,38 +1,36 @@
-#  changedetection.io
+## Web Site Change Detection, Monitoring and Notification.
+
+Live your data-life pro-actively, track website content changes and receive notifications via Discord, Email, Slack, Telegram and 70+ more
+
+[<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/docs/screenshot.png" style="max-width:100%;" alt="Self-hosted web page change monitoring"  title="Self-hosted web page change monitoring"  />](https://lemonade.changedetection.io/start?src=github)
+
 [![Release Version][release-shield]][release-link] [![Docker Pulls][docker-pulls]][docker-link] [![License][license-shield]](LICENSE.md)
 
 ![changedetection.io](https://github.com/dgtlmoon/changedetection.io/actions/workflows/test-only.yml/badge.svg?branch=master)
 
-## Self-Hosted, Open Source, Change Monitoring of Web Pages
+Know when important content changes, we support notifications via Discord, Telegram, Home-Assistant, Slack, Email and 70+ more
 
-_Know when web pages change! Stay ontop of new information!_ 
+[**Don't have time? Let us host it for you! try our $6.99/month subscription - use our proxies and support!**](https://lemonade.changedetection.io/start) , _half the price of other website change monitoring services and comes with unlimited watches & checks!_
 
-Live your data-life *pro-actively* instead of *re-actively*.
-
-Free, Open-source web page monitoring, notification and change detection. Don't have time? [**Try our $6.99/month subscription - unlimited checks and watches!**](https://lemonade.changedetection.io/start)
-
-
-[<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/screenshot.png" style="max-width:100%;" alt="Self-hosted web page change monitoring"  title="Self-hosted web page change monitoring"  />](https://lemonade.changedetection.io/start)
+- Chrome browser included.
+- Super fast, no registration needed setup.
+- Start watching and receiving change notifications instantly.
 
 
-**Get your own private instance now! Let us host it for you!**
+Easily see what changed, examine by word, line, or individual character.
 
-[**Try our $6.99/month subscription - unlimited checks and watches!**](https://lemonade.changedetection.io/start) , _half the price of other website change monitoring services and comes with unlimited watches & checks!_
-
-
-
-- Automatic Updates, Automatic Backups, No Heroku "paused application", don't miss a change!
-- Javascript browser included
-- Unlimited checks and watches!
+<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/docs/screenshot-diff.png" style="max-width:100%;" alt="Self-hosted web page change monitoring context difference "  title="Self-hosted web page change monitoring context difference " />
 
 
 #### Example use cases
 
 - Products and services have a change in pricing
+- _Out of stock notification_ and _Back In stock notification_
 - Governmental department updates (changes are often only on their websites)
 - New software releases, security advisories when you're not on their mailing list.
 - Festivals with changes
 - Realestate listing changes
+- Know when your favourite whiskey is on sale, or other special deals are announced before anyone else
 - COVID related news from government websites
 - University/organisation news from their website
 - Detect and monitor changes in JSON API responses 
@@ -44,29 +42,47 @@ Free, Open-source web page monitoring, notification and change detection. Don't 
 - Monitor HTML source code for unexpected changes, strengthen your PCI compliance
 - You have a very sensitive list of URLs to watch and you do _not_ want to use the paid alternatives. (Remember, _you_ are the product)
 
-_Need an actual Chrome runner with Javascript support? We support fetching via WebDriver!</a>_
+_Need an actual Chrome runner with Javascript support? We support fetching via WebDriver and Playwright!</a>_
+
+#### Key Features
+
+- Lots of trigger filters, such as "Trigger on text", "Remove text by selector", "Ignore text", "Extract text", also using regular-expressions!
+- Target elements with xPath and CSS Selectors, Easily monitor complex JSON with JsonPath rules
+- Switch between fast non-JS and Chrome JS based "fetchers"
+- Easily specify how often a site should be checked
+- Execute JS before extracting text (Good for logging in, see examples in the UI!)
+- Override Request Headers, Specify `POST` or `GET` and other methods
+- Use the "Visual Selector" to help target specific elements
+- Configurable [proxy per watch](https://github.com/dgtlmoon/changedetection.io/wiki/Proxy-configuration)
+
+We [recommend and use Bright Data](https://brightdata.grsm.io/n0r16zf7eivq) global proxy services, Bright Data will match any first deposit up to $100 using our signup link.
 
 ## Screenshots
 
-Examining differences in content.
-
-<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/screenshot-diff.png" style="max-width:100%;" alt="Self-hosted web page change monitoring context difference "  title="Self-hosted web page change monitoring context difference " />
-
 Please :star: star :star: this project and help it grow! https://github.com/dgtlmoon/changedetection.io/
 
+### Filter by elements using the Visual Selector tool.
+
+Available when connected to a <a href="https://github.com/dgtlmoon/changedetection.io/wiki/Playwright-content-fetcher">playwright content fetcher</a> (included as part of our subscription service)
+
+<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/docs/visualselector-anim.gif" style="max-width:100%;" alt="Self-hosted web page change monitoring context difference "  title="Self-hosted web page change monitoring context difference " />
 
 ## Installation
 
 ### Docker
 
 With Docker composer, just clone this repository and..
+
 ```bash
 $ docker-compose up -d
 ```
+
 Docker standalone
 ```bash
 $ docker run -d --restart always -p "127.0.0.1:5000:5000" -v datastore-volume:/datastore --name changedetection.io dgtlmoon/changedetection.io
 ```
+
+`:latest` tag is our latest stable release, `:dev` tag is our bleeding edge `master` branch.
 
 ### Windows
 
@@ -107,7 +123,7 @@ See the wiki for more information https://github.com/dgtlmoon/changedetection.io
 ## Filters
 XPath, JSONPath and CSS support comes baked in! You can be as specific as you need, use XPath exported from various XPath element query creation tools.
 
-(We support LXML re:test, re:math and re:replace.)
+(We support LXML `re:test`, `re:math` and `re:replace`.)
 
 ## Notifications
 
@@ -129,7 +145,7 @@ Just some examples
  
 <a href="https://github.com/caronc/apprise#popular-notification-services">And everything else in this list!</a>
 
-<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/screenshot-notifications.png" style="max-width:100%;" alt="Self-hosted web page change monitoring notifications"  title="Self-hosted web page change monitoring notifications"  />
+<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/docs/screenshot-notifications.png" style="max-width:100%;" alt="Self-hosted web page change monitoring notifications"  title="Self-hosted web page change monitoring notifications"  />
 
 Now you can also customise your notification content!
 
@@ -137,11 +153,11 @@ Now you can also customise your notification content!
 
 Detect changes and monitor data in JSON API's by using the built-in JSONPath selectors as a filter / selector.
 
-![image](https://user-images.githubusercontent.com/275001/125165842-0ce01980-e1dc-11eb-9e73-d8137dd162dc.png)
+![image](https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/docs/json-filter-field-example.png)
 
 This will re-parse the JSON and apply formatting to the text, making it super easy to monitor and detect changes in JSON API results
 
-![image](https://user-images.githubusercontent.com/275001/125165995-d9ea5580-e1dc-11eb-8030-f0deced2661a.png)
+![image](https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/docs/json-diff-example.png)
 
 ### Parse JSON embedded in HTML!
 
@@ -170,11 +186,14 @@ Raspberry Pi and linux/arm/v6 linux/arm/v7 arm64 devices are supported! See the 
 
 Do you use changedetection.io to make money? does it save you time or money? Does it make your life easier? less stressful? Remember, we write this software when we should be doing actual paid work, we have to buy food and pay rent just like you.
 
-Please support us, even small amounts help a LOT.
 
-BTC `1PLFN327GyUarpJd7nVe7Reqg9qHx5frNn`
+Firstly, consider taking out a [change detection monthly subscription - unlimited checks and watches](https://lemonade.changedetection.io/start) , even if you don't use it, you still get the warm fuzzy feeling of helping out the project. (And who knows, you might just use it!)
 
-<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/btc-support.png" style="max-width:50%;" alt="Support us!"  />
+Or directly donate an amount PayPal [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/donate/?hosted_button_id=7CP6HR9ZCNDYJ)
+
+Or BTC `1PLFN327GyUarpJd7nVe7Reqg9qHx5frNn`
+
+<img src="https://raw.githubusercontent.com/dgtlmoon/changedetection.io/master/docs/btc-support.png" style="max-width:50%;" alt="Support us!"  />
 
 ## Commercial Support
 
